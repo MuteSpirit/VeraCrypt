@@ -1,6 +1,40 @@
 This archive contains the source code of VeraCrypt.
 It is based on the original TrueCrypt 7.1a with security enhancements and modifications.
 
+# Fork
+
+## Fork reason
+
+* Part of [CredsHolder HW Creds Manager](https://github.com/MuteSpirit/CredsHolder) design is usage VeraCrypt volume as encrypted persistent storage for application DB.
+* Device is based on nRF52840 Pro Micro
+* Board has NO operating system on board (Linux, RTOS or similar). Code is made in Arduino sketch style.
+* Access to microSD card is implemented via FatFs/TinyFATFS.
+* VeraCrypt has no abstract layer for block storage or file system.
+* VeraCrypt code is not perfectly appropriate for headless mode.
+
+Taking above items into account current fork goal is add support part of VeraCrypt functionality on nRF52840:
+* create encrypted volume
+* decrypt volume header
+* encrypt/decrypt volume data
+
+## Fork maintain
+
+* :exclamation: Do not add changes/commits into `master` branch
+  * Reason: it's simple way to split origin and fork commits and avoid conflicts on receiving new updates.
+* :exclamation: Main branch for modifications is `fork_creds_holder` now
+
+To get updates from upstream project:
+* Add upstream project as git remote `upstream`
+* Switch to `master` branch
+* Pull last changes from remote `upstream`
+  * That will happen without any conflicts and branch history changes.
+* Switch to `fork_creds_holder` branch
+* Merge `master` branch into `fork_creds_holder` one
+  * Reason 1: Rebase of conflicting changes will force to resolve all of them on each such update. It's ugly.
+  * Reason 2: Merge commits will explicitly show time points of bump "VeraCrypt base code"
+* Push into fork repository
+* Rebase all active branches checked out from `fork_creds_holder` one
+
 # Important
 
 You may use the source code contained in this archive only if you accept and
