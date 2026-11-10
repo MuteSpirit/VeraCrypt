@@ -14,18 +14,71 @@
 #define TC_HEADER_Platform_PlatformBase
 
 #include <cstddef>
+#include <typeinfo>
+
+// ETL has no <locale> analog so use it together with both ETL and STL
+#include <locale>
+
+#if !defined(ETL_NO_STL)
+
 #include <list>
 #include <map>
 #include <memory>
-#include <sstream>
 #include <string>
 #include <vector>
+#include <sstream>
+
+using namespace std;
+
+#else // !ETL_NO_STL
+
+#include <Embedded_Template_Library.h>
+#include <etl/list.h>
+#include <etl/map.h>
+#include <etl/memory.h>
+#include <etl/string.h>
+#include <etl/wstring.h>
+#include <etl/vector.h>
+#include <etl/string_stream.h>
+#include <etl/wstring_stream.h>
+
+template <typename T, size_t N = 64>
+using list = etl::list<T, N>;
+
+template <typename K, typename V, size_t N = 32>
+using map = etl::map<K, V, N>;
+
+// Alias templates cannot be used without an explicit argument list (CTAD is
+// not applicable to them in C++14/17), but VeraCrypt sources use the bare
+// "string"/"wstring" names, so define them as concrete fixed-capacity types
+// (the same default capacity the previous alias templates provided)
+typedef etl::string<128> string;
+typedef etl::wstring<128> wstring;
+
+template <typename T, size_t N = 64>
+using vector = etl::vector<T, N>;
+
+using stringstream = etl::string_stream;
+using wstringstream = etl::wstring_stream;
+
+// VeraCrypt Platform headers (StringConverter.h, SerializerFactory.h, ...)
+// use type_info and exception unqualified, as provided by "using namespace std"
+// in the STL branch above; declare the std names explicitly here to keep
+// them resolvable without clashing with the ETL aliases above
+using std::bad_alloc;
+using std::exception;
+using std::type_info;
+
+#endif // !ETL_NO_STL
+
+//
+// Common defines/using
+//
+using std::locale;
 
 #ifndef _MSC_VER
 #include <inttypes.h>
 #endif
-
-using namespace std;
 
 #ifdef nullptr
 #undef nullptr

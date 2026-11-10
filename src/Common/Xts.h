@@ -45,6 +45,8 @@ extern "C" {
 
 // Custom data types
 
+#if !defined(CREDS_HOLDER)
+// FIXME: TC_LARGEST_COMPILER_UINT is typedef alias instead of macro in another places
 #ifndef TC_LARGEST_COMPILER_UINT
 #	ifdef TC_NO_COMPILER_INT64
 		typedef unsigned __int32	TC_LARGEST_COMPILER_UINT;
@@ -52,6 +54,7 @@ extern "C" {
 		typedef unsigned __int64	TC_LARGEST_COMPILER_UINT;
 #	endif
 #endif
+#endif // !defined(CREDS_HOLDER)
 
 #ifndef TCDEFS_H
 typedef union

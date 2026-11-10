@@ -13,26 +13,28 @@
 #ifndef TC_HEADER_Platform_SharedPtr
 #define TC_HEADER_Platform_SharedPtr
 
-#include <stdexcept>
-#include <memory>
-#include "SharedVal.h"
-
-#ifdef nullptr
-
-namespace VeraCrypt
-{
+#if defined(nullptr) && !defined(VC_USE_NATIVE_PTR)
 #if (__cplusplus >= 201103L) || defined(__GXX_EXPERIMENTAL_CXX0X__)
 	#define VC_USE_NATIVE_PTR	1
+#endif
 #endif
 
 #ifdef VC_USE_NATIVE_PTR
 
-#define shared_ptr std::shared_ptr
-#define make_shared std::make_shared
-#define move_ptr	std::move
+#include <memory>
 
-#else
+#define shared_ptr   std::shared_ptr
+#define make_shared  std::make_shared
+#define move_ptr     std::move
+#define unique_ptr   std::unique_ptr
 
+#else // VC_USE_NATIVE_PTR
+
+#include <stdexcept>
+#include "SharedVal.h"
+
+namespace VeraCrypt
+{
 	template <class T>
 	class SharedPtr
 	{
@@ -184,10 +186,8 @@ namespace VeraCrypt
 #define unique_ptr auto_ptr
 #define move_ptr(p)	p
 
-#endif
 }
-
-#endif // nullptr
+#endif // VC_USE_NATIVE_PTR
 
 #define make_shared_auto(typeName,instanceName) shared_ptr <typeName> instanceName (new typeName ())
 

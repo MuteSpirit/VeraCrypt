@@ -39,7 +39,14 @@
 #    pragma intrinsic( memset )
 #  endif
 #endif
-#include "Sha2Small.h"
+// NB: "Sha2.h" must be used in the boot configuration as well (instead of
+// "Sha2Small.h"): the sha256_ctx layouts of the two headers are incompatible
+// ({count[2], hash[8], wbuf[16]} vs {highLength, lowLength, state[8],
+// curlen, buf[64]}), and this build links sha256_begin()/sha256_hash()/
+// sha256_end() from the full "Crypto/Sha2.c". Mixing the layouts corrupts
+// the hmac_sha256_ctx members (crash inside the PBKDF2 loop). "Sha2Small.c"
+// is not part of this reduced build anyway.
+#include "Sha2.h"
 #endif
 #include "Pkcs5.h"
 #include "Crypto.h"

@@ -18,7 +18,9 @@
 #include "Apidrvr.h"
 #include "Keyfiles.h"
 #include "Wipe.h"
+#if defined(_WIN32)
 #include <Winternl.h>
+#endif
 
 #ifdef __cplusplus
 extern "C" {

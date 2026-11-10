@@ -11,6 +11,7 @@
 */
 
 #include <stdexcept>
+#include "Exception.h"
 #include "SerializerFactory.h"
 
 namespace VeraCrypt
@@ -28,7 +29,7 @@ namespace VeraCrypt
 	{
 		string typeName = StringConverter::GetTypeName (typeInfo);
 		if (TypeToNameMap->find (typeName) == TypeToNameMap->end())
-			throw std::runtime_error (SRC_POS);
+			LIB_THROW(std::runtime_error ("SerializerFactory::GetName: type not found"));
 
 		return (*TypeToNameMap)[typeName];
 	}
@@ -36,7 +37,7 @@ namespace VeraCrypt
 	Serializable *SerializerFactory::GetNewSerializable (const string &typeName)
 	{
 		if (NameToTypeMap->find (typeName) == NameToTypeMap->end())
-			throw std::runtime_error (SRC_POS);
+			LIB_THROW(std::runtime_error ("SerializerFactory::GetNewSerializable: type not found"));
 
 		return (*NameToTypeMap)[typeName].GetNewPtr();
 	}
@@ -55,4 +56,4 @@ namespace VeraCrypt
 	map <string, SerializerFactory::MapEntry> *SerializerFactory::NameToTypeMap;
 	map <string, string> *SerializerFactory::TypeToNameMap;
 	int SerializerFactory::UseCount;
-}
+} // namespace VeraCrypt

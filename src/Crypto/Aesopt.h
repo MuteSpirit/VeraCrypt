@@ -97,14 +97,26 @@
 #define _AESOPT_H
 
 #ifdef TC_WINDOWS_BOOT
+#if defined(CREDS_HOLDER)
+// The assembler AES implementations ("Crypto/Aes_x64.asm", "Aes_x64.o")
+// were dropped together with the switch to the VeraCrypt fork, so neither
+// the pure-asm V2 nor the V2C (key schedules in C, block operations in asm)
+// configuration may be used anymore: FUNCS_IN_C must keep
+// ENCRYPTION_IN_C | DECRYPTION_IN_C, which compiles the AES block operations
+// in C from "Crypto/Aescrypt.c" and the key schedules from "Crypto/Aeskey.c".
+// #define ASM_X86_V2C
+// #define ASM_X86_V2
+#else
 #define ASM_X86_V2
 #endif
-
-#if defined( __cplusplus )
-#include "Aescpp.h"
-#else
-#include "Aes.h"
 #endif
+
+// NB: the gladman C++ wrapper "Aescpp.h" referenced by the upstream sources
+// is not shipped by VeraCrypt at all, and nothing in this reduced build uses
+// the AES C++ classes. Include the plain C declarations in C++ translation
+// units as well - arduino-cli even preprocesses ".c" sketch sources as C++
+// during its include detection phase.
+#include "Aes.h"
 
 
 #include "Common/Endian.h"

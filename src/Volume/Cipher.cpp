@@ -22,23 +22,6 @@
 #	include "Crypto/Aes_hw_cpu.h"
 #endif
 
-extern "C" int IsAesHwCpuSupported ()
-{
-#ifdef TC_AES_HW_CPU
-	static bool state = false;
-	static bool stateValid = false;
-
-	if (!stateValid)
-	{
-		state = HasAESNI() ? true : false;
-		stateValid = true;
-	}
-	return state && VeraCrypt::Cipher::IsHwSupportEnabled();
-#else
-	return false;
-#endif
-}
-
 namespace VeraCrypt
 {
 	Cipher::Cipher () : Initialized (false)
@@ -52,7 +35,7 @@ namespace VeraCrypt
 	void Cipher::DecryptBlock (uint8 *data) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		Decrypt (data);
 	}
@@ -60,7 +43,7 @@ namespace VeraCrypt
 	void Cipher::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		while (blockCount-- > 0)
 		{
@@ -72,7 +55,7 @@ namespace VeraCrypt
 	void Cipher::EncryptBlock (uint8 *data) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		Encrypt (data);
 	}
@@ -80,7 +63,7 @@ namespace VeraCrypt
 	void Cipher::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		while (blockCount-- > 0)
 		{
@@ -94,19 +77,21 @@ namespace VeraCrypt
 		CipherList l;
 
 		l.push_back (shared_ptr <Cipher> (new CipherAES ()));
-        #ifndef WOLFCRYPT_BACKEND
+	// CredsHolder: AES-only build, see "src/veracrypt/chdefs.h" - the
+	// non-AES cipher primitives are not compiled into this target
+	       #if !defined(WOLFCRYPT_BACKEND) && !defined(CREDS_HOLDER)
 		l.push_back (shared_ptr <Cipher> (new CipherSerpent ()));
 		l.push_back (shared_ptr <Cipher> (new CipherTwofish ()));
 		l.push_back (shared_ptr <Cipher> (new CipherCamellia ()));
 		l.push_back (shared_ptr <Cipher> (new CipherKuznyechik ()));
-        #endif
+	       #endif
 		return l;
 	}
 
 	void Cipher::SetKey (const ConstBufferPtr &key)
 	{
 		if (key.Size() != GetKeySize ())
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		if (!Initialized)
 			ScheduledKey.Allocate (GetScheduledKeySize ());
@@ -120,7 +105,7 @@ namespace VeraCrypt
         void Cipher::SetKeyXTS (const ConstBufferPtr &key)
 	{
 		if (key.Size() != GetKeySize ())
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		if (!Initialized)
 			ScheduledKey.Allocate (GetScheduledKeySize ());
@@ -133,7 +118,7 @@ namespace VeraCrypt
          void Cipher::EncryptBlockXTS (uint8 *data, uint64 length, uint64 startDataUnitNo) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		EncryptXTS (data, length, startDataUnitNo);
 	}
@@ -141,17 +126,24 @@ namespace VeraCrypt
         void Cipher::DecryptBlockXTS (uint8 *data, uint64 length, uint64 startDataUnitNo) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		DecryptXTS (data, length, startDataUnitNo);
 	}
     #endif
 
+ // The SerializerFactory registration makes sense only in exceptions-enabled
+ // builds (it pulls in Serializable / SerializerFactory / StringConverter,
+ // which the CREDS_HOLDER build avoids completely)
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+#if !defined(CREDS_HOLDER)
 #define TC_EXCEPTION(TYPE) TC_SERIALIZER_FACTORY_ADD(TYPE)
 #undef TC_EXCEPTION_NODECL
 #define TC_EXCEPTION_NODECL(TYPE) TC_SERIALIZER_FACTORY_ADD(TYPE)
 
-	TC_SERIALIZER_FACTORY_ADD_EXCEPTION_SET (CipherException);
+ TC_SERIALIZER_FACTORY_ADD_EXCEPTION_SET (CipherException);
+#endif // !defined(CREDS_HOLDER)
+#endif // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
 
 
 	// AES
@@ -168,7 +160,7 @@ namespace VeraCrypt
 	void CipherAES::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #ifdef TC_AES_HW_CPU
 		if ((blockCount & (32 - 1)) == 0
@@ -200,7 +192,7 @@ namespace VeraCrypt
 	void CipherAES::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #ifdef TC_AES_HW_CPU
 		if ((blockCount & (32 - 1)) == 0
@@ -232,10 +224,10 @@ namespace VeraCrypt
         void CipherAES::SetCipherKeyXTS (const uint8 *key)
 	{
 		if (xts_encrypt_key256 (key, (aes_encrypt_ctx *) ScheduledKey.Ptr()) != EXIT_SUCCESS)
-			throw CipherInitError (SRC_POS);
+			LIB_THROW(CipherInitError (SRC_POS));
 
 		if (xts_decrypt_key256 (key, (aes_decrypt_ctx *) (ScheduledKey.Ptr() + sizeof (aes_encrypt_ctx))) != EXIT_SUCCESS)
-			throw CipherInitError (SRC_POS);
+			LIB_THROW(CipherInitError (SRC_POS));
 	}
     #endif
 
@@ -264,18 +256,21 @@ namespace VeraCrypt
 	void CipherAES::SetCipherKey (const uint8 *key)
 	{
 		if (aes_encrypt_key256 (key, (aes_encrypt_ctx *) ScheduledKey.Ptr()) != EXIT_SUCCESS)
-			throw CipherInitError (SRC_POS);
+			LIB_THROW(CipherInitError (SRC_POS));
 
 		if (aes_decrypt_key256 (key, (aes_decrypt_ctx *) (ScheduledKey.Ptr() + sizeof (aes_encrypt_ctx))) != EXIT_SUCCESS)
-			throw CipherInitError (SRC_POS);
+			LIB_THROW(CipherInitError (SRC_POS));
 	}
 
-    #ifndef WOLFCRYPT_BACKEND
-	// Serpent
-	void CipherSerpent::Decrypt (uint8 *data) const
-	{
-		serpent_decrypt (data, data, ScheduledKey);
-	}
+ // CredsHolder: AES-only build, see "src/veracrypt/chdefs.h" - the
+ // non-AES cipher primitives (serpent_*, twofish_*, camellia_*,
+ // kuznyechik_*) are not compiled into this target
+    #if !defined(WOLFCRYPT_BACKEND) && !defined(CREDS_HOLDER)
+ // Serpent
+ void CipherSerpent::Decrypt (uint8 *data) const
+ {
+  serpent_decrypt (data, data, ScheduledKey);
+ }
 
 	void CipherSerpent::Encrypt (uint8 *data) const
 	{
@@ -295,7 +290,7 @@ namespace VeraCrypt
 	void CipherSerpent::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_SSE2_INTRINSICS_AVAILABLE && !defined(CRYPTOPP_DISABLE_ASM)
 		if ((blockCount >= 4)
@@ -311,7 +306,7 @@ namespace VeraCrypt
 	void CipherSerpent::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_SSE2_INTRINSICS_AVAILABLE && !defined(CRYPTOPP_DISABLE_ASM)
 		if ((blockCount >= 4)
@@ -366,7 +361,7 @@ namespace VeraCrypt
 	void CipherTwofish::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_X64 && !defined(CRYPTOPP_DISABLE_ASM)
 		twofish_encrypt_blocks ( (TwofishInstance *) ScheduledKey.Ptr(), data, data, blockCount);
@@ -378,7 +373,7 @@ namespace VeraCrypt
 	void CipherTwofish::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_X64 && !defined(CRYPTOPP_DISABLE_ASM)
 		twofish_decrypt_blocks ( (TwofishInstance *) ScheduledKey.Ptr(), data, data, blockCount);
@@ -420,7 +415,7 @@ namespace VeraCrypt
 	void CipherCamellia::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_X64 && !defined(CRYPTOPP_DISABLE_ASM)
 		camellia_encrypt_blocks ( ScheduledKey.Ptr(), data, data, blockCount);
@@ -432,7 +427,7 @@ namespace VeraCrypt
 	void CipherCamellia::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_X64 && !defined(CRYPTOPP_DISABLE_ASM)
 		camellia_decrypt_blocks ( ScheduledKey.Ptr(), data, data, blockCount);
@@ -473,7 +468,7 @@ namespace VeraCrypt
 	void CipherKuznyechik::EncryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_SSE2_INTRINSICS_AVAILABLE
 		if ((blockCount >= 4)
@@ -489,7 +484,7 @@ namespace VeraCrypt
 	void CipherKuznyechik::DecryptBlocks (uint8 *data, size_t blockCount) const
 	{
 		if (!Initialized)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 #if CRYPTOPP_BOOL_SSE2_INTRINSICS_AVAILABLE
 		if ((blockCount >= 4)

@@ -10,6 +10,15 @@ and released into public domain.
 #include "Crypto/cpu.h"
 #include "Crypto/misc.h"
 
+#if defined(TC_NO_COMPILER_INT64)
+// The boot-style 32-bit configuration does not provide uint_64t (cf.
+// "Common/Tcdefs.h" - the type is defined only when native 64-bit data
+// types are available). In this reduced build uint_64t is used solely as
+// the block counter of the SHA-256 transform helpers below, which never
+// counts past 32 bits, so fall back to the 32-bit type.
+typedef uint_32t uint_64t;
+#endif
+
 /* SHA-2 words are big-endian: swap only on little-endian hosts. */
 #if BYTE_ORDER == BIG_ENDIAN
 #define SHA2_BE32(x) (x)
@@ -55,7 +64,9 @@ extern "C"
 }
 #endif
 
-#endif
+#endif // !NO_OPTIMIZED_VERSIONS
+
+#if !defined (CREDS_HOLDER)
 
 typedef void (*transformFn)(sha512_ctx* ctx, void* m, uint_64t num_blks);
 
@@ -84,6 +95,7 @@ static const uint_64t K[80] = {
 	LL(0x4cc5d4becb3e42b6), LL(0x597f299cfc657e2a), LL(0x5fcb6fab3ad6faec), LL(0x6c44198c4a475817)
 };
 
+#endif // !CREDS_HOLDER
 
 #define Ch(x,y,z)       ((z) ^ ((x) & ((y) ^ (z))))
 #define Maj(x,y,z)      (((x) & (y)) | ((z) & ((x) ^ (y))))
@@ -105,6 +117,8 @@ static const uint_64t K[80] = {
 			c = b; \
 			b = a; \
 			a = T1 + T2;
+
+#if !defined (CREDS_HOLDER)
 
 void StdTransform(sha512_ctx* ctx, void* mp, uint_64t num_blks)
 {
@@ -314,6 +328,8 @@ void sha512(unsigned char * result, const unsigned char* source, uint_64t source
 	sha512_hash(source, sourceLen, &ctx);
 	sha512_end(result, &ctx);
 }
+
+#endif // !CREDS_HOLDER
 
 /////////////////////////////
 

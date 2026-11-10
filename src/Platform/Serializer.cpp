@@ -21,7 +21,7 @@ namespace VeraCrypt
 	SerializationScope::SerializationScope (shared_ptr <Stream> stream) : DataStream (stream)
 	{
 		if (!DataStream || DataStream->SerializationDepth >= Serializer::MaxNestingDepth)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 		++DataStream->SerializationDepth;
 	}
 
@@ -33,7 +33,7 @@ namespace VeraCrypt
 	Serializer::Serializer (shared_ptr <Stream> stream) : DataStream (stream)
 	{
 		if (!DataStream)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 	}
 
 	template <typename T>
@@ -43,7 +43,7 @@ namespace VeraCrypt
 		DataStream->ReadCompleteBuffer (BufferPtr ((uint8 *) &size, sizeof (size)));
 
 		if (Endian::Big (size) != sizeof (T))
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		T data;
 		DataStream->ReadCompleteBuffer (BufferPtr ((uint8 *) &data, sizeof (data)));
@@ -105,7 +105,7 @@ namespace VeraCrypt
 
 		uint64 size = Deserialize <uint64> ();
 		if (data.Size() != size)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		DataStream->ReadCompleteBuffer (data);
 	}
@@ -145,12 +145,12 @@ namespace VeraCrypt
 	{
 		uint64 size = Deserialize <uint64> ();
 		if (size == 0 || size > MaxStringSize)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		vector <char> data ((size_t) size);
 		DataStream->ReadCompleteBuffer (BufferPtr ((uint8 *) &data[0], (size_t) size));
-		if (data.back() != 0 || find (data.begin(), data.end() - 1, '\0') != data.end() - 1)
-			throw ParameterIncorrect (SRC_POS);
+		if (data.back() != 0 || std::find (data.begin(), data.end() - 1, '\0') != data.end() - 1)
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return string (&data[0], data.size() - 1);
 	}
@@ -178,12 +178,12 @@ namespace VeraCrypt
 	{
 		uint64 size = Deserialize <uint64> ();
 		if (size == 0 || size > MaxStringSize || size % sizeof (wchar_t) != 0)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		vector <wchar_t> data ((size_t) size / sizeof (wchar_t));
 		DataStream->ReadCompleteBuffer (BufferPtr ((uint8 *) &data[0], (size_t) size));
-		if (data.back() != 0 || find (data.begin(), data.end() - 1, L'\0') != data.end() - 1)
-			throw ParameterIncorrect (SRC_POS);
+		if (data.back() != 0 || std::find (data.begin(), data.end() - 1, L'\0') != data.end() - 1)
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return wstring (&data[0], data.size() - 1);
 	}
@@ -210,7 +210,7 @@ namespace VeraCrypt
 	void Serializer::ValidateCollectionSize (uint64 size)
 	{
 		if (size > MaxCollectionSize)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 	}
 
 	template <typename T>
@@ -320,7 +320,7 @@ namespace VeraCrypt
 	{
 		// Embedded NULs would be interpreted differently by C-string consumers.
 		if (data.size() >= MaxStringSize || data.find ('\0') != string::npos)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		Serialize ((uint64) data.size() + 1);
 		DataStream->Write (ConstBufferPtr ((const uint8 *) data.c_str(), data.size() + 1));
@@ -329,7 +329,7 @@ namespace VeraCrypt
 	void Serializer::SerializeWString (const wstring &data)
 	{
 		if (data.size() >= MaxStringSize / sizeof (wchar_t) || data.find (L'\0') != wstring::npos)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		uint64 size = ((uint64) data.size() + 1) * sizeof (wchar_t);
 		Serialize (size);
@@ -341,7 +341,7 @@ namespace VeraCrypt
 		string dName = DeserializeString();
 		if (dName != name)
 		{
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 		}
 	}
-}
+} // namespace VeraCrypt

@@ -263,7 +263,11 @@ static uint_8t fi(const uint_8t x)
 
 static int init = 0;
 
-#ifdef TC_WINDOWS_BOOT
+// The CREDS_HOLDER host build keeps TC_WINDOWS_BOOT defined (see
+// "src/veracrypt/chdefs.h") but links the AES block operations from
+// "Crypto/Aes_x64.asm", so it needs the standard (non-boot) AES tables
+// below: t_rc/t_ls/t_im referenced by the key schedules from Aeskey.c
+#if defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 
 #pragma optimize ("l", on)
 uint_8t aes_enc_tab[256][8];
@@ -274,7 +278,7 @@ uint_8t aes_dec_tab[256][8];
 AES_RETURN aes_init(void)
 {   uint_32t  i, w;
 
-#ifdef TC_WINDOWS_BOOT
+#if defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 
 	if (init)
 		return EXIT_SUCCESS;

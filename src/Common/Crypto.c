@@ -648,7 +648,7 @@ int EAGetKeyScheduleSize (int ea)
 	return size;
 }
 
-#ifndef TC_WINDOWS_BOOT
+#if !defined(TC_WINDOWS_BOOT) || defined(CREDS_HOLDER)
 
 // Returns number of ciphers in EA
 int EAGetCipherCount (int ea)
@@ -1159,6 +1159,33 @@ void DecryptDataUnits (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, 
 }
 
 #endif // TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
+
+#if defined (TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE) && defined (CREDS_HOLDER)
+
+// CredsHolder (the parent project) reads standard VeraCrypt volume headers on
+// the reduced boot-style configuration, in which the full EA tables and the
+// EA/Cipher query API above are excluded by TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE,
+// while the CredsHolder code (see "veracrypt_io.cpp") still relies on the
+// query functions declared in "Crypto.h". Only AES-XTS is available in this
+// configuration, so the queries are answered with the fixed AES-only answers.
+
+// Returns number of ciphers in EA
+int EAGetCipherCount (int ea)
+{
+	return (ea == AES)? 1 : 0;
+}
+
+int EAGetFirstCipher (int ea)
+{
+	return (ea == AES)? AES : 0;
+}
+
+int CipherGetKeySize (int cipherId)
+{
+	return (cipherId == AES)? 32 : 0;	// AES key size in bytes
+}
+
+#endif // TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE && CREDS_HOLDER
 
 
 #if !defined (TC_WINDOWS_BOOT) || defined (TC_WINDOWS_BOOT_AES)

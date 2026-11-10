@@ -10,7 +10,6 @@
  code distribution packages.
 */
 
-#include "Exception.h"
 #include "Serializable.h"
 #include "SerializerFactory.h"
 
@@ -34,7 +33,7 @@ namespace VeraCrypt
 		unique_ptr <Serializable> serializable (SerializerFactory::GetNewSerializable (name));
 		// Allow legitimate subtypes, but never run an unexpected object's parser.
 		if (isExpectedType && !isExpectedType (*serializable))
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 		serializable->Deserialize (stream);
 
 		return serializable.release();
@@ -48,8 +47,8 @@ namespace VeraCrypt
 		SerializeData (stream);
 	}
 
-	void Serializable::SerializeHeader (Serializer &serializer, const string &name)
-	{
-		serializer.Serialize ("SerializableName", name);
-	}
-}
+		void Serializable::SerializeHeader (Serializer &serializer, const string &name)
+		{
+			serializer.Serialize ("SerializableName", name);
+		}
+} // namespace VeraCrypt

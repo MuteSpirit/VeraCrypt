@@ -11,6 +11,13 @@
 */
 
 #include "Exception.h"
+
+// The CREDS_HOLDER build avoids the Serializable / SerializerFactory /
+// StringConverter machinery completely, so the whole exception serialization
+// support is compiled out there (see VERACRYPT_CPP_SRCS notes in the Makefile)
+#if !defined(CREDS_HOLDER)
+
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
 #include "SerializerFactory.h"
 
 namespace VeraCrypt
@@ -53,3 +60,6 @@ namespace VeraCrypt
 
 	TC_SERIALIZER_FACTORY_ADD_EXCEPTION_SET (Exception);
 }
+#endif // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+
+#endif // !defined(CREDS_HOLDER)

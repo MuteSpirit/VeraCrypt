@@ -33,7 +33,7 @@ namespace VeraCrypt
 	void Buffer::Allocate (size_t size, size_t alignment)
 	{
 		if (size < 1)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		if (DataPtr != nullptr)
 		{
@@ -42,18 +42,18 @@ namespace VeraCrypt
 			Free();
 		}
 
-		try
+		LIB_TRY
 		{
 			DataPtr = static_cast<uint8 *> ((alignment > 0)? Memory::AllocateAligned (size, alignment) : Memory::Allocate (size));
 			DataSize = size;
 			DataAlignment = alignment;
 		}
-		catch (...)
+		LIB_CATCH (...)
 		{
 			DataPtr = nullptr;
 			DataSize = 0;
 			DataAlignment = 0;
-			throw;
+			LIB_THROW_ITSELF;
 		}
 	}
 
@@ -68,7 +68,7 @@ namespace VeraCrypt
 				Allocate (bufferPtr.Size(), alignment);
 		}
 		else if (bufferPtr.Size() > DataSize)
-			throw ParameterTooLarge (SRC_POS);
+			LIB_THROW(ParameterTooLarge (SRC_POS));
 
 		if (bufferPtr.Size())
 			Memory::Copy (DataPtr, bufferPtr.Get(), bufferPtr.Size());
@@ -83,7 +83,7 @@ namespace VeraCrypt
 	void Buffer::Free ()
 	{
 		if (DataPtr == nullptr)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		if (DataAlignment > 0)
 			Memory::FreeAligned (DataPtr);
@@ -97,7 +97,7 @@ namespace VeraCrypt
 	BufferPtr Buffer::GetRange (size_t offset, size_t size) const
 	{
 		if (offset + size > DataSize)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return BufferPtr (DataPtr + offset, size);
 	}
@@ -127,7 +127,7 @@ namespace VeraCrypt
 	void SecureBuffer::Free ()
 	{
 		if (DataPtr == nullptr)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		Erase ();
 		Buffer::Free ();
@@ -136,7 +136,7 @@ namespace VeraCrypt
 	void BufferPtr::CopyFrom (const ConstBufferPtr &bufferPtr) const
 	{
 		if (bufferPtr.Size() > DataSize)
-			throw ParameterTooLarge (SRC_POS);
+			LIB_THROW(ParameterTooLarge (SRC_POS));
 
 		Memory::Copy (DataPtr, bufferPtr.Get(), bufferPtr.Size());
 	}
@@ -144,7 +144,7 @@ namespace VeraCrypt
 	BufferPtr BufferPtr::GetRange (size_t offset, size_t size) const
 	{
 		if (offset + size > DataSize)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return BufferPtr (DataPtr + offset, size);
 	}
@@ -152,7 +152,7 @@ namespace VeraCrypt
 	ConstBufferPtr ConstBufferPtr::GetRange (size_t offset, size_t size) const
 	{
 		if (offset + size > DataSize)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return ConstBufferPtr (DataPtr + offset, size);
 	}

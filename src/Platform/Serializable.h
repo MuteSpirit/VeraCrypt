@@ -13,9 +13,9 @@
 #ifndef TC_HEADER_Platform_Serializable
 #define TC_HEADER_Platform_Serializable
 
-#include <stdexcept>
 #include "PlatformBase.h"
 #include "ForEach.h"
+#include "LibMacros.h"
 #include "Serializer.h"
 #include "SerializerFactory.h"
 
@@ -49,8 +49,14 @@ namespace VeraCrypt
 		static void DeserializeList (shared_ptr <Stream> stream, list < shared_ptr <T> > &dataList)
 		{
 			SerializationScope scope (stream);
-			if (DeserializeHeader (stream) != string ("list<") + SerializerFactory::GetName (typeid (T)) + ">")
-				throw std::runtime_error (SRC_POS);
+			// Note: use operator+= instead of operator+ because the ETL string
+			// (used when ETL_NO_STL is defined, cf. PlatformBase.h) does not
+			// provide a concatenating operator+
+			string headerName ("list<");
+			headerName += SerializerFactory::GetName (typeid (T));
+			headerName += ">";
+			if (DeserializeHeader (stream) != headerName)
+				LIB_THROW(std::runtime_error (SRC_POS));
 
 			Serializer sr (stream);
 			uint64 listSize;
@@ -71,7 +77,10 @@ namespace VeraCrypt
 			Serializer::ValidateCollectionSize (dataList.size());
 			SerializationScope scope (stream);
 			Serializer sr (stream);
-			SerializeHeader (sr, string ("list<") + SerializerFactory::GetName (typeid (T)) + ">");
+			string headerName ("list<");
+			headerName += SerializerFactory::GetName (typeid (T));
+			headerName += ">";
+			SerializeHeader (sr, headerName);
 
 			sr.Serialize ("ListSize", (uint64) dataList.size());
 			foreach_ref (const T &item, dataList)

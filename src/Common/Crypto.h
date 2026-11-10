@@ -231,7 +231,7 @@ typedef struct
 #include "GfMul.h"
 #include "Password.h"
 
-#ifndef TC_WINDOWS_BOOT
+#if !defined(TC_WINDOWS_BOOT) || defined(CREDS_HOLDER)
 
 #include "config.h"
 
@@ -261,15 +261,25 @@ typedef struct CRYPTO_INFO_t
 
 #ifndef TC_WINDOWS_BOOT
 	uint16 HeaderVersion;
+#endif
 
 #ifdef TC_WINDOWS_DRIVER
 	unsigned __int8 master_keydata_hash[BLAKE2S_DIGESTSIZE];
 #else
-	CRYPTOPP_ALIGN_DATA(16) unsigned __int8 master_keydata[MASTER_KEYDATA_SIZE];	/* This holds the volume header area containing concatenated master key(s) and secondary key(s) (XTS mode). For LRW (deprecated/legacy), it contains the tweak key before the master key(s). For CBC (deprecated/legacy), it contains the IV seed before the master key(s). */
+	// CREDS_HOLDER: keep the decrypted master key(s) also in boot mode (TC_WINDOWS_BOOT),
+	// because the C++ EncryptionModeXTS used by CredsHolder (src/veracrypt_io.cpp) needs
+	// the raw primary and secondary keys, which boot-mode ReadVolumeHeader() otherwise
+	// stores only as expanded key schedules (ks/ks2).
+#if !defined(TC_WINDOWS_BOOT) || defined(CREDS_HOLDER)
+	CRYPTOPP_ALIGN_DATA(16) unsigned __int8 master_keydata[MASTER_KEYDATA_SIZE];		/* This holds the volume header area containing concatenated master key(s) and secondary key(s) (XTS mode). For LRW (deprecated/legacy), it contains the tweak key before the master key(s). For CBC (deprecated/legacy), it contains the IV seed before the master key(s). */
+#endif
+#ifndef TC_WINDOWS_BOOT
 	CRYPTOPP_ALIGN_DATA(16) unsigned __int8 k2[MASTER_KEYDATA_SIZE];				/* For XTS, this contains the secondary key (if cascade, multiple concatenated). For LRW (deprecated/legacy), it contains the tweak key. For CBC (deprecated/legacy), it contains the IV seed. */
 #endif
+#endif
 
-	int noIterations;	
+#ifndef TC_WINDOWS_BOOT
+	int noIterations;
 	int memoryCost;
 	int volumePim;
 
@@ -394,9 +404,9 @@ int GetMaxPkcs5OutSize (void);
 #endif
 
 
-void EncryptDataUnits (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, uint32 nbrUnits, PCRYPTO_INFO ci);
+void EncryptDataUnits (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, TC_LARGEST_COMPILER_UINT nbrUnits, PCRYPTO_INFO ci);
 void EncryptDataUnitsCurrentThread (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, TC_LARGEST_COMPILER_UINT nbrUnits, PCRYPTO_INFO ci);
-void DecryptDataUnits (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, uint32 nbrUnits, PCRYPTO_INFO ci);
+void DecryptDataUnits (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, TC_LARGEST_COMPILER_UINT nbrUnits, PCRYPTO_INFO ci);
 void DecryptDataUnitsCurrentThread (unsigned __int8 *buf, const UINT64_STRUCT *structUnitNo, TC_LARGEST_COMPILER_UINT nbrUnits, PCRYPTO_INFO ci);
 void EncryptBuffer (unsigned __int8 *buf, TC_LARGEST_COMPILER_UINT len, PCRYPTO_INFO cryptoInfo);
 void DecryptBuffer (unsigned __int8 *buf, TC_LARGEST_COMPILER_UINT len, PCRYPTO_INFO cryptoInfo);

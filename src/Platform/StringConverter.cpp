@@ -13,7 +13,6 @@
 #ifdef __GNUC__
 #	include <cxxabi.h>
 #endif
-#include <locale>
 #include <typeinfo>
 #include "Buffer.h"
 #include "Exception.h"
@@ -82,14 +81,14 @@ namespace VeraCrypt
 
 		string s = str.substr (start + 1);
 		if (s.empty ())
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return s;
 	}
 
 	string StringConverter::GetTypeName (const type_info &typeInfo)
 	{
-		try
+		LIB_TRY
 		{
 #ifdef _MSC_VER
 			// type_info::name() leaks memory as of MS VC++ 8.0
@@ -116,7 +115,7 @@ namespace VeraCrypt
 			}
 #endif
 		}
-		catch (...) { }
+		LIB_CATCH (...) { }
 
 		return typeInfo.name();
 	}
@@ -133,7 +132,8 @@ namespace VeraCrypt
 				escaped += L'\'';
 			escaped += c;
 		}
-		return escaped + L'\'';
+		escaped += L'\'';
+		return escaped;
 	}
 
 	vector <string> StringConverter::Split (const string &str, const string &separators, bool returnEmptyFields)
@@ -186,6 +186,7 @@ namespace VeraCrypt
 		return str.substr (0, start + 1);
 	}
 
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
 	wstring StringConverter::ToExceptionString (const exception &ex)
 	{
 		const SystemException *sysEx = dynamic_cast <const SystemException *> (&ex);
@@ -214,12 +215,18 @@ namespace VeraCrypt
 
 		return message;
 	}
+#else
+	wstring StringConverter::ToExceptionString (const exception &)
+	{
+		return L"";
+	}
+#endif
 
 	string StringConverter::ToLower (const string &str)
 	{
 		string s;
 		foreach (char c, str)
-			s += tolower (c, locale());
+			s += tolower (c, std::locale());
 		return s;
 	}
 
@@ -232,7 +239,7 @@ namespace VeraCrypt
 
 	void StringConverter::ToSingle (const wstring &wstr, string &str, bool noThrow)
 	{
-		try
+		LIB_TRY
 		{
 			mbstate_t mbState;
 			Memory::Zero (&mbState, sizeof (mbState));
@@ -240,33 +247,33 @@ namespace VeraCrypt
 
 			size_t size = wcsrtombs (nullptr, &src, 0, &mbState);
 			if (size == (size_t) -1)
-				throw StringConversionFailed (SRC_POS, wstr);
+				LIB_THROW(StringConversionFailed (SRC_POS, wstr));
 
 			vector <char> buf (size + 1);
 			Memory::Zero (&mbState, sizeof (mbState));
 
 			if ((size = wcsrtombs (&buf[0], &src, buf.size(), &mbState)) == (size_t) -1)
-				throw StringConversionFailed (SRC_POS, wstr);
+				LIB_THROW(StringConversionFailed (SRC_POS, wstr));
 
 			str.clear();
 			str.insert (0, &buf.front(), size);
 			burn (&buf.front(), buf.size());
 		}
-		catch (...)
+		LIB_CATCH (...)
 		{
 			if (!noThrow)
-				throw;
+				LIB_THROW_ITSELF;
 		}
 	}
 
 	uint32 StringConverter::ToUInt32 (const string &str)
 	{
 		uint32 n;
-		stringstream ss (str);
+		stringstream ss (string (str.c_str()));
 
 		ss >> n;
 		if (ss.fail() || n == 0xffffFFFFU)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -278,7 +285,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0xffffFFFFU)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -290,7 +297,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0x7fffFFFF || n == -0x7fffFFFF)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -302,7 +309,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0x7fffFFFF || n == -0x7fffFFFF)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -314,7 +321,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0xffffFFFFffffFFFFULL)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -326,7 +333,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0xffffFFFFffffFFFFULL)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -338,7 +345,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0x7fffFFFFffffFFFFLL || n == -0x7fffFFFFffffFFFFLL)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -350,7 +357,7 @@ namespace VeraCrypt
 
 		ss >> n;
 		if (ss.fail() || n == 0x7fffFFFFffffFFFFLL || n == -0x7fffFFFFffffFFFFLL)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		return n;
 	}
@@ -365,7 +372,7 @@ namespace VeraCrypt
 
 	wstring StringConverter::ToWide (const string &str, bool noThrow)
 	{
-		try
+		LIB_TRY
 		{
 			mbstate_t mbState;
 			Memory::Zero (&mbState, sizeof (mbState));
@@ -373,23 +380,23 @@ namespace VeraCrypt
 
 			size_t size = mbsrtowcs (nullptr, &src, 0, &mbState);
 			if (size == (size_t) -1)
-				throw StringConversionFailed (SRC_POS);
+				LIB_THROW(StringConversionFailed (SRC_POS));
 
 			vector <wchar_t> buf (size + 1);
 			Memory::Zero (&mbState, sizeof (mbState));
 
 			if ((size = mbsrtowcs (&buf[0], &src, buf.size(), &mbState)) == (size_t) -1)
-				throw StringConversionFailed (SRC_POS);
+				LIB_THROW(StringConversionFailed (SRC_POS));
 
 			wstring s;
 			s.insert (s.begin(), buf.begin(), buf.begin() + size);
 			return s;
 		}
-		catch (...)
+		LIB_CATCH (...)
 		{
 			if (noThrow)
 				return L"";
-			throw;
+			LIB_THROW_ITSELF;
 		}
 	}
 
@@ -433,4 +440,5 @@ namespace VeraCrypt
 
 		return str.substr (start, end - start);
 	}
-}
+
+} // namespace VeraCrypt

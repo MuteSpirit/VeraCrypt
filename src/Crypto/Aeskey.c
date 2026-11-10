@@ -159,7 +159,7 @@ AES_RETURN aes_encrypt_key192(const unsigned char *key, aes_encrypt_ctx cx[1])
 
 #endif
 
-#if defined(AES_256) || defined(AES_VAR)
+#if defined(AES_256) || defined(AES_VAR) || defined(CREDS_HOLDER)
 
 #define kef8(k,i) \
 {   k[8*(i)+ 8] = ss[0] ^= ls_box(ss[7],3) ^ t_use(r,c)[i]; \
@@ -457,7 +457,7 @@ AES_RETURN aes_decrypt_key192(const unsigned char *key, aes_decrypt_ctx cx[1])
 
 #endif
 
-#if defined(AES_256) || defined(AES_VAR)
+#if defined(AES_256) || defined(AES_VAR) || defined(CREDS_HOLDER)
 
 #define k8ef(k,i) \
 {   k[v(56,(8*(i))+ 8)] = ss[0] ^= ls_box(ss[7],3) ^ t_use(r,c)[i]; \

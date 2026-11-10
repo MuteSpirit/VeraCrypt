@@ -45,6 +45,11 @@ extern "C"
 #		else
 #			define BYTE_ORDER LITTLE_ENDIAN
 #		endif
+#	elif defined(ARDUINO_ARCH_NRF52) || defined(NRF52)
+#		// ARM Cortex-M4 is little-endian
+#		define LITTLE_ENDIAN 1234
+#		define BIG_ENDIAN 4321
+#		define BYTE_ORDER LITTLE_ENDIAN
 #	else
 #		include <endian.h>
 #	endif

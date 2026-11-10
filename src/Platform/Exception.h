@@ -13,9 +13,22 @@
 #ifndef TC_HEADER_Platform_Exception
 #define TC_HEADER_Platform_Exception
 
-#include <exception>
 #include "PlatformBase.h"
+#include "LibMacros.h"
+
+// CREDS_HOLDER build compiles VeraCrypt with -fno-exceptions and does not use
+// the Serializable / SerializerFactory / StringConverter machinery at all, so
+// all declarations and definitions related to the Serializable,
+// SerializerFactory or Exception classes are compiled out for it
+// (see VERACRYPT_CPP_SRCS notes in the CredsHolder Makefile).
+#if !defined(CREDS_HOLDER)
+
+// Include Serializable.h unconditionally - the include guard prevents
+// circular inclusion when Serializable.h includes Exception.h
 #include "Serializable.h"
+
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+#include <exception>
 
 namespace VeraCrypt
 {
@@ -60,16 +73,42 @@ namespace VeraCrypt
 		string ErrorOutput;
 	};
 
+} // namespace VeraCrypt
+
+#else // // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+
+namespace VeraCrypt
+{
+    class Exception : public Serializable
+    {
+    public:
+        Exception() = default;
+        Exception(const string &) {};
+        Exception(const string &, const wstring &) {};
+
+        virtual ~Exception() {};
+
+        // No-op implementations for no-exceptions mode
+        virtual void DeserializeData (shared_ptr <Stream>) { }
+        virtual void SerializeData (shared_ptr <Stream>) const { }
+    };
+
+ // The TC_* exception machinery is usable only in exceptions-enabled builds:
+ // with exceptions disabled LIB_THROW() expands to std::abort() and discards
+ // its argument, so no exception type is ever constructed and TC_EXCEPTION_SET
+ // must not expand (it would reference Serializable otherwise).
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+
 #define TC_EXCEPTION_DECL(NAME,BASE) \
-	struct NAME  : public BASE \
-	{ \
-		NAME () { } \
-		NAME (const string &message) : BASE (message) { } \
-		NAME (const string &message, const wstring &subject) : BASE (message, subject) { } \
-		virtual Exception *CloneNew () { return new NAME (*this); } \
-		static Serializable *GetNewSerializable () { return new NAME (); } \
-		virtual void Throw () const { throw *this; } \
-	}
+ struct NAME  : public BASE \
+ { \
+  NAME () { } \
+  NAME (const string &message) : BASE (message) { } \
+  NAME (const string &message, const wstring &subject) : BASE (message, subject) { } \
+  virtual Exception *CloneNew () { return new NAME (*this); } \
+  static Serializable *GetNewSerializable () { return new NAME (); } \
+  virtual void Throw () const { } \
+ }
 
 #define TC_EXCEPTION_NODECL(dummy) //
 #define TC_EXCEPTION(NAME) TC_EXCEPTION_DECL(NAME,Exception)
@@ -103,13 +142,19 @@ namespace VeraCrypt
 	TC_EXCEPTION_SET;
 
 #undef TC_EXCEPTION
-}
+
+#endif // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+} // namespace VeraCrypt
+
+#endif // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+
+#endif // !defined(CREDS_HOLDER)
 
 #ifdef assert
 #	undef assert
 #endif
 
-#ifdef DEBUG
+#if defined(DEBUG) && (defined(__cpp_exceptions) || defined(__EXCEPTIONS))
 #	define assert(condition) do { if (!(condition)) throw AssertionFailed (SRC_POS); } while (false)
 #else
 #	define assert(condition) ((void) 0)

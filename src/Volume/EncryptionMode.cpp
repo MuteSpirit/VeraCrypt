@@ -15,7 +15,12 @@
 #ifdef WOLFCRYPT_BACKEND
 #include "EncryptionModeWolfCryptXTS.h"
 #endif
+#ifndef CREDS_HOLDER
+// CredsHolder: the thread pool is neither used nor built for this
+// single-threaded target (see DecryptSectors/EncryptSectors below),
+// so do not even include its header.
 #include "EncryptionThreadPool.h"
+#endif
 
 namespace VeraCrypt
 {
@@ -27,14 +32,18 @@ namespace VeraCrypt
 	{
 	}
 
+	// CredsHolder: this target is single-threaded (embedded device without
+	// EncryptionThreadPool), so process sectors in the calling thread.
+	// Do NOT use EncryptionThreadPool::DoWork() here, it pulls pthreads and
+	// the whole thread pool into the build.
 	void EncryptionMode::DecryptSectors (uint8 *data, uint64 sectorIndex, uint64 sectorCount, size_t sectorSize) const
 	{
-		EncryptionThreadPool::DoWork (EncryptionThreadPool::WorkType::DecryptDataUnits, this, data, sectorIndex, sectorCount, sectorSize);
+		DecryptSectorsCurrentThread (data, sectorIndex, sectorCount, sectorSize);
 	}
 
 	void EncryptionMode::EncryptSectors (uint8 *data, uint64 sectorIndex, uint64 sectorCount, size_t sectorSize) const
 	{
-		EncryptionThreadPool::DoWork (EncryptionThreadPool::WorkType::EncryptDataUnits, this, data, sectorIndex, sectorCount, sectorSize);
+		EncryptSectorsCurrentThread (data, sectorIndex, sectorCount, sectorSize);
 	}
 
 	EncryptionModeList EncryptionMode::GetAvailableModes ()
@@ -53,18 +62,18 @@ namespace VeraCrypt
 	void EncryptionMode::ValidateState () const
 	{
 		if (!KeySet || Ciphers.size() < 1)
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 	}
 
 	void EncryptionMode::ValidateParameters (uint8 *data, uint64 length) const
 	{
 		if ((Ciphers.size() > 0 && (length % Ciphers.front()->GetBlockSize()) != 0))
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 	}
 
 	void EncryptionMode::ValidateParameters (uint8 *data, uint64 sectorCount, size_t sectorSize) const
 	{
 		if (sectorCount == 0 || sectorSize == 0 || (sectorSize % EncryptionDataUnitSize) != 0)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 	}
 }

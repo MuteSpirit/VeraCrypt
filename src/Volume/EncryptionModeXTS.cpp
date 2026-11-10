@@ -237,7 +237,7 @@ namespace VeraCrypt
 	size_t EncryptionModeXTS::GetKeySize () const
 	{
 		if (Ciphers.empty())
-			throw NotInitialized (SRC_POS);
+			LIB_THROW(NotInitialized (SRC_POS));
 
 		size_t keySize = 0;
 		foreach_ref (const Cipher &cipher, SecondaryCiphers)

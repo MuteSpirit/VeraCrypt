@@ -12,6 +12,7 @@
 
 #include "Memory.h"
 #include "Exception.h"
+#include <stdint.h>
 #include <stdlib.h>
 
 namespace VeraCrypt
@@ -19,11 +20,11 @@ namespace VeraCrypt
 	void *Memory::Allocate (std::size_t size)
 	{
 		if (size < 1)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 
 		void *bufPtr = malloc (size);
 		if (!bufPtr)
-			throw bad_alloc();
+			LIB_THROW(bad_alloc());
 
 		return bufPtr;
 	}
@@ -31,16 +32,34 @@ namespace VeraCrypt
 	void *Memory::AllocateAligned (std::size_t size, std::size_t alignment)
 	{
 		if (size < 1)
-			throw ParameterIncorrect (SRC_POS);
+			LIB_THROW(ParameterIncorrect (SRC_POS));
 #ifdef TC_WINDOWS
 		void *bufPtr = _aligned_malloc (size, alignment);
-#else
+#elif defined(EPOXY_DUINO) || defined(__unix__) || defined(__unix) || defined(__APPLE__)
 		void *bufPtr = NULL;
 		if (0 != posix_memalign (&bufPtr, alignment, size))
 			bufPtr = NULL;
+#else
+		// Platforms without posix_memalign() (e.g. newlib on nRF52840):
+		// over-allocate and keep the raw malloc pointer right before the
+		// aligned block; FreeAligned() retrieves it again. Works for every
+		// power-of-two alignment.
+		if (alignment < sizeof (void *))
+			alignment = sizeof (void *);
+		if ((alignment & (alignment - 1)) != 0)
+			LIB_THROW(ParameterIncorrect (SRC_POS));
+
+		uint8 *rawPtr = static_cast<uint8 *> (malloc (size + alignment - 1 + sizeof (void *)));
+		if (!rawPtr)
+			LIB_THROW(bad_alloc());
+
+		uintptr_t addr = reinterpret_cast<uintptr_t> (rawPtr) + sizeof (void *);
+		addr = (addr + (alignment - 1)) & ~(uintptr_t) (alignment - 1);
+		void *bufPtr = reinterpret_cast<void *> (addr);
+		*(reinterpret_cast<void **> (bufPtr) - 1) = rawPtr;
 #endif
 		if (!bufPtr)
-			throw bad_alloc();
+			LIB_THROW(bad_alloc());
 
 		return bufPtr;
 	}
@@ -77,8 +96,12 @@ namespace VeraCrypt
 		assert (memory != nullptr);
 #ifdef TC_WINDOWS
 		_aligned_free (memory);
-#else
+#elif defined(EPOXY_DUINO) || defined(__unix__) || defined(__unix) || defined(__APPLE__)
 		free (memory);
+#else
+		// Pair of the AllocateAligned() fallback above: the raw malloc
+		// pointer is stored right before the aligned block
+		free (*(reinterpret_cast<void **> (memory) - 1));
 #endif
 	}
 }

@@ -23,7 +23,9 @@
 
 #include <stddef.h>
 #include <string.h>
+#if !defined(CREDS_HOLDER)
 #include <io.h>
+#endif
 
 #ifndef DEVICE_DRIVER
 #include "Random.h"
@@ -939,6 +941,11 @@ int ReadVolumeHeader (BOOL bBoot, unsigned char *header, Password *password, int
 #endif
 
 		memcpy (dk, header + HEADER_MASTER_KEYDATA_OFFSET, sizeof (dk));
+#ifdef CREDS_HOLDER
+		// CredsHolder needs the raw master keys (primary + secondary) to build
+		// the C++ EncryptionModeXTS, cf. src/veracrypt_io.cpp
+		memcpy (cryptoInfo->master_keydata, dk, sizeof (dk));
+#endif
 		EncryptBuffer (header + HEADER_ENCRYPTED_DATA_OFFSET, HEADER_ENCRYPTED_DATA_SIZE, cryptoInfo);
 
 		if (retHeaderCryptoInfo)

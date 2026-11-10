@@ -14,6 +14,20 @@
 #include <PCSC/wintypes.h>
 #include "reader.h"
 #define BOOL int
+#elif defined(VC_NO_PCSC)
+// Smart card support disabled (e.g. for embedded builds without PC/SC)
+#define BOOL int
+typedef int SCARDCONTEXT;
+typedef int *LPSCARDCONTEXT;
+typedef int SCARDHANDLE;
+typedef int *LPSCARDHANDLE;
+typedef int DWORD;
+typedef void *LPCVOID;
+typedef const char *LPCSTR;
+typedef char *LPTSTR;
+typedef int LONG;
+typedef int SCARD_READERSTATE;
+typedef int SCARD_IO_REQUEST;
 #else
 #undef BOOL
 #include "pcsclite.h"

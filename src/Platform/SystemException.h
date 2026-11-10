@@ -29,7 +29,9 @@ namespace VeraCrypt
 			: Exception (message), ErrorCode (errorCode) { }
 		virtual ~SystemException () throw () { }
 
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
 		TC_SERIALIZABLE_EXCEPTION (SystemException);
+#endif
 
 		int64 GetErrorCode () const { return ErrorCode; }
 		bool IsError () const;
@@ -44,7 +46,7 @@ namespace VeraCrypt
 	TC_EXCEPTION_NODECL (SystemException);
 }
 
-#define throw_sys_if(condition) do { if (condition) throw SystemException (SRC_POS); } while (false)
-#define throw_sys_sub_if(condition,subject) do { if (condition) throw SystemException (SRC_POS, (subject)); } while (false)
+#define throw_sys_if(condition) do { if (condition) LIB_THROW(SystemException (SRC_POS)); } while (false)
+#define throw_sys_sub_if(condition,subject) do { if (condition) LIB_THROW(SystemException (SRC_POS, (subject))); } while (false)
 
 #endif // TC_HEADER_Platform_SystemException

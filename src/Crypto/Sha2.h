@@ -39,11 +39,16 @@ extern "C" {
 typedef struct wc_Sha512 sha512_ctx;
 typedef struct wc_Sha256 sha256_ctx;
 #else
+
+#  if !defined(CREDS_HOLDER)
+
 typedef struct
 {   uint_64t count[2];
     SHA2_ALIGN uint_64t hash[8];
     SHA2_ALIGN uint_64t wbuf[16];
 } sha512_ctx;
+
+#  endif // !defined(CREDS_HOLDER)
 
 typedef struct
 {   uint_32t count[2];
@@ -53,10 +58,14 @@ typedef struct
 #endif
 
 
+#  if !defined(CREDS_HOLDER)
+
 void sha512_begin(sha512_ctx* ctx);
 void sha512_hash(const unsigned char * source, uint_64t sourceLen, sha512_ctx *ctx);
 void sha512_end(unsigned char * result, sha512_ctx* ctx);
 void sha512(unsigned char * result, const unsigned char* source, uint_64t sourceLen);
+
+#  endif // !defined(CREDS_HOLDER)
 
 void sha256_begin(sha256_ctx* ctx);
 void sha256_hash(const unsigned char * source, uint_32t sourceLen, sha256_ctx *ctx);

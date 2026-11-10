@@ -44,7 +44,9 @@
 #	define CK_DECLARE_FUNCTION(RET_TYPE, NAME) RET_TYPE NAME
 #	define CK_DECLARE_FUNCTION_POINTER(RET_TYPE, NAME) RET_TYPE (* NAME)
 
+#if !defined(VC_NO_PCSC)
 #	include <pkcs11.h>
+#endif
 
 #endif // !TC_WINDOWS
 

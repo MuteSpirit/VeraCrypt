@@ -73,6 +73,9 @@ namespace VeraCrypt
 		Cipher &operator= (const Cipher &);
 	};
 
+	// The CREDS_HOLDER build does not use the VeraCrypt exception hierarchy
+	// (see VERACRYPT_CPP_SRCS notes in the CredsHolder Makefile)
+#if !defined(CREDS_HOLDER)
 	struct CipherException : public Exception
 	{
 	protected:
@@ -80,6 +83,7 @@ namespace VeraCrypt
 		CipherException (const string &message) : Exception (message) { }
 		CipherException (const string &message, const wstring &subject) : Exception (message, subject) { }
 	};
+#endif // !defined(CREDS_HOLDER)
 
 #ifdef WOLFCRYPT_BACKEND
 
@@ -155,6 +159,12 @@ namespace VeraCrypt
 #undef TC_CIPHER
 
 
+	// The TC_* exception machinery is usable only in exceptions-enabled builds
+	// (with exceptions disabled LIB_THROW() discards the exception object), and
+	// the CREDS_HOLDER build avoids the Serializable / SerializerFactory /
+	// StringConverter machinery completely
+#if defined(__cpp_exceptions) || defined(__EXCEPTIONS)
+#if !defined(CREDS_HOLDER)
 #define TC_EXCEPTION(NAME) TC_EXCEPTION_DECL(NAME,CipherException)
 
 #undef TC_EXCEPTION_SET
@@ -165,6 +175,8 @@ namespace VeraCrypt
 	TC_EXCEPTION_SET;
 
 #undef TC_EXCEPTION
+#endif // !defined(CREDS_HOLDER)
+#endif // defined(__cpp_exceptions) || defined(__EXCEPTIONS)
 
 }
 
