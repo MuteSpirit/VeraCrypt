@@ -25,6 +25,13 @@
  Issue Date: 20/12/2007
 */
 
+// NB: "Aes.h" must be included before "Aesopt.h": it defines the
+// configuration macros (AES_256, AES_ENCRYPT, AES_DECRYPT, AES_ERR_CHK)
+// which control the FUNCS_IN_C masks in "Aesopt.h". Without them this
+// translation unit would compile empty and aes_encrypt()/aes_decrypt()
+// would be missing at link time (cf. the boot-mode EncipherBlock()/
+// DecipherBlock() in "Common/Crypto.c" and XTS in "Crypto/XtsStub.c").
+#include "Aes.h"
 #include "Aesopt.h"
 #include "Aestab.h"
 

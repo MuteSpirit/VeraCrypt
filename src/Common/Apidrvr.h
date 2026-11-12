@@ -14,13 +14,14 @@
 #pragma once
 
 #include "Tcdefs.h"
-#include "Boot/Windows/BootDefs.h"
 #include "Common.h"
 #include "Crypto.h"
 #include "Volumes.h"
 #include "Wipe.h"
 
 #ifdef _WIN32
+
+#include "Boot/Windows/BootDefs.h"
 
 /* WARNING: Modifying the following values or their meanings can introduce incompatibility with previous versions. */
 

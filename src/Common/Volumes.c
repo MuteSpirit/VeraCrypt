@@ -28,6 +28,8 @@
 #endif
 
 #ifndef DEVICE_DRIVER
+// Keep next header with name only to allow compiler "-I" options manipulations for 
+// forcing include file in needed "Platform" folder 
 #include "Random.h"
 #else
 #include "cpu.h"
@@ -1004,15 +1006,35 @@ ret:
 #endif // TC_WINDOWS_BOOT
 
 
-#if !defined (DEVICE_DRIVER) && !defined (TC_WINDOWS_BOOT)
+#if defined(CREDS_HOLDER) || (!defined (DEVICE_DRIVER) && !defined (TC_WINDOWS_BOOT))
 
 #ifdef VOLFORMAT
 #	include "../Format/TcFormat.h"
 #	include "Dlgcode.h"
 #endif
 
+// FIXME: if compiler has no int64 then how function can accept 64-bit variable?
+// [Hunk] Helper for the 64-bit volume geometry fields below. CRYPTO_INFO
+// stores them as UINT64_STRUCT; when TC_NO_COMPILER_INT64 is defined (the
+// nRF52840 build) that union has no .Value member, so the low/high halves
+// are set explicitly. The struct layout is identical in both configurations.
+// unsigned __int64 is a real 64-bit type here either way (chdefs.h maps it
+// to "long long").
+#ifdef TC_NO_COMPILER_INT64
+static void SetUint64Struct (UINT64_STRUCT *target, unsigned __int64 value)
+{
+	target->LowPart = (unsigned __int32) value;
+	target->HighPart = (unsigned __int32) (value >> 32);
+}
+#else
+static void SetUint64Struct (UINT64_STRUCT *target, unsigned __int64 value)
+{
+	target->Value = value;
+}
+#endif // TC_NO_COMPILER_INT64
+
 // Creates a volume header in memory
-#if defined(_UEFI)
+#if defined(_UEFI) || defined(CREDS_HOLDER)
 int CreateVolumeHeaderInMemory(BOOL bBoot, unsigned char *header, int ea, int mode, Password *password,
 	int pkcs5_prf, int pim, char *masterKeydata, PCRYPTO_INFO *retInfo,
 	unsigned __int64 volumeSize, unsigned __int64 hiddenVolumeSize,
@@ -1024,18 +1046,34 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		   unsigned __int64 encryptedAreaStart, unsigned __int64 encryptedAreaLength, uint16 requiredProgramVersion, uint32 headerFlags, uint32 sectorSize, BOOL bWipeMode)
 #endif // !defined(_UEFI)
 {
+#if defined(TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE) && defined(TC_WINDOWS_BOOT_SHA2)
+#  define PKCS5_MAX_OUT_SIZE   (32 * 2)      // SHA-256: primary + secondary XTS keys
+#else
+#  define PKCS5_MAX_OUT_SIZE   GetMaxPkcs5OutSize()
+#endif
+
+
 	unsigned char *p = header;
 	static CRYPTOPP_ALIGN_DATA(TC_KEY_INFO_BUFFER_ALIGNMENT) KEY_INFO keyInfo;
 
 	int nUserKeyLen = password? password->Length : 0;
 	PCRYPTO_INFO cryptoInfo = crypto_open ();
-	static char dk[MASTER_KEYDATA_SIZE];
+	static unsigned char dk[MASTER_KEYDATA_SIZE];
 	int x;
 	int retVal = 0;
 	int primaryKeyOffset;
 
 	if (cryptoInfo == NULL)
 		return ERR_OUTOFMEMORY;
+
+#ifdef TC_WINDOWS_BOOT
+	// [Hunk] crypto_open() in boot mode returns the single static
+	// CryptoInfoBuffer instead of a freshly zeroed heap allocation, and it
+	// may hold leftovers of a previous call (e.g. key schedules of a volume
+	// mounted earlier). Clear it so every field starts from a defined state;
+	// the full build gets the zeroing from crypto_open() itself.
+	memset (cryptoInfo, 0, sizeof (CRYPTO_INFO));
+#endif
 
 	// if no PIM specified, use default value
 	if (pim < 0)
@@ -1068,10 +1106,14 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		{
 
 		default:
+#ifndef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
 			bytesNeeded = EAGetKeySize (ea) * 2;	// Size of primary + secondary key(s)
+#else
+			bytesNeeded = CipherGetKeySize (ea) * 2;	// Size of primary + secondary key(s)
+#endif
 		}
 
-#if !defined(_UEFI)
+#if !defined(_UEFI) && !defined(CREDS_HOLDER)
 		if (!RandgetBytes (hwndDlg, keyInfo.master_keydata, bytesNeeded, TRUE))
 #else
 		if (!RandgetBytes(keyInfo.master_keydata, bytesNeeded, TRUE))
@@ -1102,7 +1144,23 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 	{
 		memcpy (keyInfo.userKey, password->Text, nUserKeyLen);
 		keyInfo.keyLength = nUserKeyLen;
+#ifdef TC_WINDOWS_BOOT
+		// [Hunk] get_pkcs5_iteration_count() is not compiled for the boot
+		// configuration (it queries the full PRF table). The boot-mode KDFs
+		// take the iteration count in the packed boot encoding instead: the
+		// most significant 16 bits hold the PIM, bit 0 the bBoot flag, and
+		// derive_u_sha256() resolves that to c = 15000 + PIM * 1000
+		// (500000 when PIM == 0) - exactly the standard VeraCrypt SHA-256
+		// iteration count (cf. the boot ReadVolumeHeader() and
+		// "Common/Pkcs5.c"). Without this the header would always be created
+		// with the default 500000 iterations and could never be mounted with
+		// the PIM the volume was formatted with.
+		keyInfo.noIterations = (uint32) pim;
+		keyInfo.noIterations <<= 16;
+		keyInfo.noIterations |= (bBoot? 1 : 0);
+#else
 		keyInfo.noIterations = get_pkcs5_iteration_count (pkcs5_prf, pim, bBoot, &keyInfo.memoryCost);
+#endif
 	}
 	else
 	{
@@ -1125,15 +1183,17 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 
 	// User selected PRF
 	cryptoInfo->pkcs5 = pkcs5_prf;
+#ifndef TC_WINDOWS_BOOT
 	cryptoInfo->noIterations = keyInfo.noIterations;
 	cryptoInfo->memoryCost = keyInfo.memoryCost;
 	cryptoInfo->volumePim = pim;
+#endif
 
 	// Mode of operation
 	cryptoInfo->mode = mode;
 
 	// Salt for header key derivation
-#if !defined(_UEFI)
+#if !defined(_UEFI) && !defined(CREDS_HOLDER)
 	if (!RandgetBytes(hwndDlg, keyInfo.salt, PKCS5_SALT_SIZE, !bWipeMode))
 #else
 	if (!RandgetBytes(keyInfo.salt, PKCS5_SALT_SIZE, !bWipeMode))
@@ -1149,17 +1209,22 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		// PBKDF2 (PKCS5) is used to derive primary header key(s) and secondary header key(s) (XTS) from the password/keyfiles
 		switch (pkcs5_prf)
 		{
+#ifndef TC_WINDOWS_BOOT
 		case SHA512:
 			derive_key_sha512 (keyInfo.userKey, keyInfo.keyLength, keyInfo.salt,
 				PKCS5_SALT_SIZE, keyInfo.noIterations, dk, GetMaxPkcs5OutSize(), NULL);
 			break;
-
+#endif
 		case SHA256:
 			derive_key_sha256 (keyInfo.userKey, keyInfo.keyLength, keyInfo.salt,
-				PKCS5_SALT_SIZE, keyInfo.noIterations, dk, GetMaxPkcs5OutSize(), NULL);
+				PKCS5_SALT_SIZE, keyInfo.noIterations, dk, PKCS5_MAX_OUT_SIZE
+#ifndef TC_WINDOWS_BOOT
+				, NULL
+#endif
+				);
 			break;
 
-        #ifndef WOLFCRYPT_BACKEND
+        #if !defined(WOLFCRYPT_BACKEND) && !defined(CREDS_HOLDER)
 		case BLAKE2S:
 			derive_key_blake2s (keyInfo.userKey, keyInfo.keyLength, keyInfo.salt,
 				PKCS5_SALT_SIZE, keyInfo.noIterations, dk, GetMaxPkcs5OutSize(), NULL);
@@ -1199,10 +1264,10 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 	else
 	{
 		// generate a random key
-#if !defined(_UEFI)
-		if (!RandgetBytes(hwndDlg, dk, GetMaxPkcs5OutSize(), !bWipeMode))
+#if !defined(_UEFI) && !defined(CREDS_HOLDER)
+		if (!RandgetBytes(hwndDlg, dk, PKCS5_MAX_OUT_SIZE, !bWipeMode))
 #else
-		if (!RandgetBytes(dk, GetMaxPkcs5OutSize(), !bWipeMode))
+		if (!RandgetBytes(dk, PKCS5_MAX_OUT_SIZE, !bWipeMode))
 #endif
 		{
 			crypto_close (cryptoInfo);
@@ -1221,7 +1286,9 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 
 	// Header version
 	mputWord (p, VOLUME_HEADER_VERSION);
+#ifndef TC_WINDOWS_BOOT
 	cryptoInfo->HeaderVersion = VOLUME_HEADER_VERSION;
+#endif
 
 	// Required program version to handle this volume
 	mputWord (p, requiredProgramVersion != 0 ? requiredProgramVersion : TC_VOLUME_MIN_REQUIRED_PROGRAM_VERSION);
@@ -1234,21 +1301,26 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 	p += 2 * 8;
 
 	// Size of hidden volume (if any)
-	cryptoInfo->hiddenVolumeSize = hiddenVolumeSize;
-	mputInt64 (p, cryptoInfo->hiddenVolumeSize);
+	mputInt64 (p, hiddenVolumeSize);
+	cryptoInfo->hiddenVolume = hiddenVolumeSize != 0;
 
-	cryptoInfo->hiddenVolume = cryptoInfo->hiddenVolumeSize != 0;
+#ifndef TC_WINDOWS_BOOT
+	cryptoInfo->hiddenVolumeSize = hiddenVolumeSize;
+#endif
 
 	// Volume size
-	cryptoInfo->VolumeSize.Value = volumeSize;
+	// [Hunk] SetUint64Struct() (see above) keeps the assignment compilable
+	// for the TC_NO_COMPILER_INT64 device build, where UINT64_STRUCT has no
+	// .Value member.
+	SetUint64Struct (&cryptoInfo->VolumeSize, volumeSize);
 	mputInt64 (p, volumeSize);
 
 	// Encrypted area start
-	cryptoInfo->EncryptedAreaStart.Value = encryptedAreaStart;
+	SetUint64Struct (&cryptoInfo->EncryptedAreaStart, encryptedAreaStart);
 	mputInt64 (p, encryptedAreaStart);
 
 	// Encrypted area size
-	cryptoInfo->EncryptedAreaLength.Value = encryptedAreaLength;
+	SetUint64Struct (&cryptoInfo->EncryptedAreaLength, encryptedAreaLength);
 	mputInt64 (p, encryptedAreaLength);
 
 	// Flags
@@ -1264,7 +1336,9 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		TC_THROW_FATAL_EXCEPTION;
 	}
 
+#ifndef TC_WINDOWS_BOOT
 	cryptoInfo->SectorSize = sectorSize;
+#endif
 	mputLong (p, sectorSize);
 
 	// CRC of the header fields
@@ -1280,17 +1354,37 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 
 #ifndef TC_WINDOWS_DRIVER
 	// The secondary key (if cascade, multiple concatenated)
+#ifndef TC_WINDOWS_BOOT
 	memcpy (cryptoInfo->k2, dk + EAGetKeySize (cryptoInfo->ea), EAGetKeySize (cryptoInfo->ea));
+#endif
 	primaryKeyOffset = 0;
 #endif
 
+#ifndef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
 	retVal = EAInit (cryptoInfo->ea, dk + primaryKeyOffset, cryptoInfo->ks);
 	if (retVal != ERR_SUCCESS)
 	{
 		crypto_close (cryptoInfo);
 		goto err;
 	}
+#else
+	retVal = EAInit (dk + primaryKeyOffset, cryptoInfo->ks);
+	if (retVal != ERR_SUCCESS)
+	{
+		crypto_close (cryptoInfo);
+		goto err;
+	}
+	// [Hunk] the single-cipher boot configuration has no EAInitMode(): the
+	// secondary XTS key schedule must be initialized explicitly into ks2
+	// (the boot EncryptBuffer() pairs ks with ks2, cf. the boot
+	// ReadVolumeHeader()). dk holds exactly PKCS5_MAX_OUT_SIZE = 2 * 32
+	// bytes: primary header key at +0, secondary at +32. Without this the
+	// header would be encrypted with an uninitialized tweak key and could
+	// never be decrypted again.
+	EAInit (dk + primaryKeyOffset + 32, cryptoInfo->ks2);
+#endif
 
+#ifndef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
 	// Mode of operation
 	if (!EAInitMode (cryptoInfo, dk + EAGetKeySize (cryptoInfo->ea)))
 	{
@@ -1298,7 +1392,7 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		retVal = ERR_OUTOFMEMORY;
 		goto err;
 	}
-
+#endif
 
 	// Encrypt the entire header (except the salt)
 	EncryptBuffer (header + HEADER_ENCRYPTED_DATA_OFFSET,
@@ -1309,28 +1403,41 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 	/* cryptoInfo setup for further use (disk format) */
 
 	// Init with the master key(s)
+#ifndef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
 	retVal = EAInit (cryptoInfo->ea, keyInfo.master_keydata + primaryKeyOffset, cryptoInfo->ks);
+#else
+	retVal = EAInit (keyInfo.master_keydata + primaryKeyOffset, cryptoInfo->ks);
+#endif
 	if (retVal != ERR_SUCCESS)
 	{
 		crypto_close (cryptoInfo);
 		goto err;
 	}
+#ifdef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
+	// [Hunk] same as for the header keys above: initialize the secondary
+	// (tweak) data key schedule explicitly, so the CRYPTO_INFO returned via
+	// retInfo is fully usable for the data area by the caller
+	// (cf. VeraCryptIoImpl::format(), which builds its C++
+	// EncryptionModeXTS from the very same master keys).
+	EAInit (keyInfo.master_keydata + primaryKeyOffset + 32, cryptoInfo->ks2);
+#endif
 
 	memcpy (cryptoInfo->master_keydata, keyInfo.master_keydata, MASTER_KEYDATA_SIZE);
 
-#ifndef TC_WINDOWS_DRIVER
+#if !defined(TC_WINDOWS_DRIVER) && !defined(CREDS_HOLDER)
 	// The secondary master key (if cascade, multiple concatenated)
 	memcpy (cryptoInfo->k2, keyInfo.master_keydata + EAGetKeySize (cryptoInfo->ea), EAGetKeySize (cryptoInfo->ea));
 #endif
 
 	// Mode of operation
+#ifndef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
 	if (!EAInitMode (cryptoInfo, keyInfo.master_keydata + EAGetKeySize (cryptoInfo->ea)))
 	{
 		crypto_close (cryptoInfo);
 		retVal = ERR_OUTOFMEMORY;
 		goto err;
 	}
-
+#endif
 
 #ifdef VOLFORMAT
 	if (!bInPlaceEncNonSys && (showKeys || (bBoot && !masterKeydata)))
@@ -1387,7 +1494,7 @@ err:
 	return retVal;
 }
 
-#if !defined(_UEFI)
+#if !defined(_UEFI) && !defined(CREDS_HOLDER)
 BOOL ReadEffectiveVolumeHeader (BOOL device, HANDLE fileHandle, uint8 *header, DWORD *bytesRead)
 {
 #if TC_VOLUME_HEADER_EFFECTIVE_SIZE > TC_MAX_VOLUME_SECTOR_SIZE
@@ -1604,5 +1711,5 @@ final_seq:
 	return nStatus;
 }
 
-#endif // !defined(_UEFI)
-#endif // !defined (DEVICE_DRIVER) && !defined (TC_WINDOWS_BOOT)
+#endif // !defined(_UEFI) && !defined(CREDS_HOLDER)
+#endif // defined(CREDS_HOLDER) || (!defined (DEVICE_DRIVER) && !defined (TC_WINDOWS_BOOT))

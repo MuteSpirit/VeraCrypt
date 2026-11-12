@@ -492,7 +492,6 @@ int EAInit (int ea, unsigned char *key, unsigned __int8 *ks)
 }
 
 
-#ifndef TC_WINDOWS_BOOT
 
 BOOL EAInitMode (PCRYPTO_INFO ci, unsigned char* key2)
 {
@@ -525,6 +524,7 @@ BOOL EAInitMode (PCRYPTO_INFO ci, unsigned char* key2)
 	return TRUE;
 }
 
+#ifndef TC_WINDOWS_BOOT
 static void EAGetDisplayName(wchar_t *buf, size_t bufLen, int ea, int i)
 {
 	StringCchCopyW (buf, bufLen, CipherGetName (i));
@@ -817,10 +817,11 @@ int GetMaxPkcs5OutSize (void)
 	return size;
 }
 
-#endif
-
-
 #endif // TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
+#endif // TC_WINDOWS_BOOT
+
+
+
 
 
 #ifdef TC_WINDOWS_BOOT

@@ -49,7 +49,11 @@ BOOL FastPoll ( void );
 BOOL SlowPoll ( void );
 
 /* Get len random bytes from the pool (max. RNG_POOL_SIZE bytes per a single call) */
+#if defined(_UEFI) || defined(CREDS_HOLDER)
+BOOL RandgetBytes(unsigned char *buf, int len, BOOL forceSlowPoll);
+#else
 BOOL RandgetBytes ( void* hwndDlg, unsigned char *buf , int len, BOOL forceSlowPoll );
+#endif
 
 /* Get len random bytes from the pool.
  *  If allowAnyLength is FALSE, then len must be less or equal to RNG_POOL_SIZE
