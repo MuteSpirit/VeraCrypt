@@ -19,6 +19,7 @@
 // ETL has no <locale> analog so use it together with both ETL and STL
 #include <locale>
 
+
 #if !defined(ETL_NO_STL)
 
 #include <list>
@@ -28,7 +29,11 @@
 #include <vector>
 #include <sstream>
 
+namespace VeraCrypt {
+
 using namespace std;
+
+} // namespace VeraCrypt
 
 #else // !ETL_NO_STL
 
@@ -42,6 +47,8 @@ using namespace std;
 #include <etl/string_stream.h>
 #include <etl/wstring_stream.h>
 
+namespace VeraCrypt {
+
 template <typename T, size_t N = 64>
 using list = etl::list<T, N>;
 
@@ -52,8 +59,8 @@ using map = etl::map<K, V, N>;
 // not applicable to them in C++14/17), but VeraCrypt sources use the bare
 // "string"/"wstring" names, so define them as concrete fixed-capacity types
 // (the same default capacity the previous alias templates provided)
-typedef etl::string<128> string;
-typedef etl::wstring<128> wstring;
+typedef etl::string<255> string;
+typedef etl::wstring<255> wstring;
 
 template <typename T, size_t N = 64>
 using vector = etl::vector<T, N>;
@@ -69,12 +76,19 @@ using std::bad_alloc;
 using std::exception;
 using std::type_info;
 
+} // namespace VeraCrypt
+
 #endif // !ETL_NO_STL
 
 //
 // Common defines/using
 //
+namespace VeraCrypt {
+
 using std::locale;
+
+} // namespace VeraCrypt
+
 
 #ifndef _MSC_VER
 #include <inttypes.h>
@@ -111,7 +125,6 @@ namespace VeraCrypt
 	typedef uint32_t uint32;
 	typedef uint64_t uint64;
 #endif
-}
 
 #if (defined(_WIN32) || defined(_WIN64)) && !defined(TC_WINDOWS)
 #	define TC_WINDOWS
@@ -187,5 +200,7 @@ namespace VeraCrypt
 #define trace_val(VAL) trace_msg (#VAL << '=' << (VAL));
 
 #define array_capacity(arr) (sizeof (arr) / sizeof ((arr)[0]))
+
+} // namespace VeraCrypt
 
 #endif // TC_HEADER_Platform_PlatformBase

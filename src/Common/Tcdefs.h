@@ -32,8 +32,13 @@ void VeraCryptMemFree(IN VOID* ptr);
 #define TRUE 1
 #endif
 
+#ifndef max
 #define max(a,b)	((a)>(b))?(a):(b)
+#endif
+
+#ifndef min
 #define min(a,b)	((a)<(b))?(a):(b)
+#endif
 
 #ifdef  __cplusplus
 extern "C" {
@@ -385,7 +390,7 @@ typedef unsigned char  BOOLEAN;
 #	define FAST_ERASE64(mem,size) do { volatile unsigned __int32 *burnm = (volatile unsigned __int32 *)(mem); int burnc = size >> 2; while (burnc--) *burnm++ = 0; } while (0)
 #endif
 
-#ifdef TC_WINDOWS_BOOT
+#if defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 #	ifndef max
 #		define max(a,b) (((a) > (b)) ? (a) : (b))
 #	endif
