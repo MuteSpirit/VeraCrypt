@@ -55,12 +55,14 @@ void EncryptBufferXTS (unsigned __int8 *buffer,
 					   int cipher)
 {
     #ifndef WOLFCRYPT_BACKEND
-        if (CipherSupportsIntraDataUnitParallelization (cipher))
-		EncryptBufferXTSParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
-	else
-		EncryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
+#ifndef TC_WINDOWS_BOOT
+    if (CipherSupportsIntraDataUnitParallelization (cipher))
+        EncryptBufferXTSParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
+    else
+#endif // TC_WINDOWS_BOOT
+        EncryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
     #else
-        xts_encrypt(buffer, buffer, length, startDataUnitNo, ks);
+        xts_encrypt(buffer, buffer, length, startDataUnitNo, (const aes_encrypt_ctx*) ks);
     #endif
 }
 
@@ -93,6 +95,8 @@ void EncryptBufferXTS (unsigned __int8 *buffer,
 	len = end - start;
 
 #endif
+
+#if !defined(TC_WINDOWS_BOOT)
 
 // Optimized for encryption algorithms supporting intra-data-unit parallelization
 static void EncryptBufferXTSParallel (unsigned __int8 *buffer,
@@ -240,6 +244,7 @@ static void EncryptBufferXTSParallel (unsigned __int8 *buffer,
 	FAST_ERASE64 (whiteningValues, sizeof (whiteningValues));
 }
 
+#endif // !defined(TC_WINDOWS_BOOT)
 
 // Optimized for encryption algorithms not supporting intra-data-unit parallelization
 static void EncryptBufferXTSNonParallel (unsigned __int8 *buffer,
@@ -384,16 +389,19 @@ void DecryptBufferXTS (unsigned __int8 *buffer,
 					   unsigned __int8 *ks2,
 					   int cipher)
 {
-    #ifndef WOLFCRYPT_BACKEND
-	if (CipherSupportsIntraDataUnitParallelization (cipher))
-		DecryptBufferXTSParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
-	else
-		DecryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
-    #else
-        xts_decrypt(buffer, buffer, length, startDataUnitNo, ks);
-    #endif
+#ifndef WOLFCRYPT_BACKEND
+#ifndef TC_WINDOWS_BOOT
+    if (CipherSupportsIntraDataUnitParallelization (cipher))
+        DecryptBufferXTSParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
+    else
+#endif // TC_WINDOWS_BOOT
+        DecryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
+#else
+    xts_decrypt(buffer, buffer, length, startDataUnitNo, (const aes_decrypt_ctx*) ks);
+#endif
 }
 
+#if !defined(TC_WINDOWS_BOOT)
 
 // Optimized for encryption algorithms supporting intra-data-unit parallelization
 static void DecryptBufferXTSParallel (unsigned __int8 *buffer,
@@ -531,6 +539,7 @@ static void DecryptBufferXTSParallel (unsigned __int8 *buffer,
 	FAST_ERASE64 (whiteningValues, sizeof (whiteningValues));
 }
 
+#endif // !defined(TC_WINDOWS_BOOT)
 
 // Optimized for encryption algorithms not supporting intra-data-unit parallelization
 static void DecryptBufferXTSNonParallel (unsigned __int8 *buffer,
