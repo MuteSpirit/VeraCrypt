@@ -64,7 +64,10 @@ extern "C"
 #define AES_ERR_CHK /* for parameter checks & error return codes    */
 #define AES_REV_DKS /* define to reverse decryption key schedule    */
 
+#ifndef AES_BLOCK_SIZE /* may be defined by wolfssl backend */
 #define AES_BLOCK_SIZE  16  /* the AES block size in bytes          */
+#endif
+
 #define N_COLS           4  /* the number of columns in the state   */
 
 /* The key schedule length is 11, 13 or 15 16-byte blocks for 128,  */
