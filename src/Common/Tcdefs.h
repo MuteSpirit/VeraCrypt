@@ -14,6 +14,10 @@
 #ifndef TCDEFS_H
 #define TCDEFS_H
 
+#if defined(CREDS_HOLDER)
+#include "chdefs.h"
+#endif
+
 #if defined(_UEFI)
 #undef  _WIN32
 #undef  _WIN64
