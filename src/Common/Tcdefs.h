@@ -230,7 +230,7 @@ typedef int LONG;
 // #define bswap_32(x)	(rotl32((((x) & 0xFF00FF00) >> 8) | (((x) & 0x00FF00FF) << 8), 16U))
 // #define bswap_64(x)	rotl64(((((((x & LL(0xFF00FF00FF00FF00)) >> 8) | ((x & LL(0x00FF00FF00FF00FF)) << 8)) & LL(0xFFFF0000FFFF0000)) >> 16) | (((((x & LL(0xFF00FF00FF00FF00)) >> 8) | ((x & LL(0x00FF00FF00FF00FF)) << 8)) & LL(0x0000FFFF0000FFFF)) << 16)), 32U)
 
-#endif
+#endif // _UEFI
 
 #ifdef TC_WINDOWS_BOOT
 
@@ -394,8 +394,8 @@ typedef unsigned char  BOOLEAN;
 #	define FAST_ERASE64(mem,size) do { volatile unsigned __int32 *burnm = (volatile unsigned __int32 *)(mem); int burnc = size >> 2; while (burnc--) *burnm++ = 0; } while (0)
 #endif
 
-#if defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
-#	ifndef max
+#if defined(TC_WINDOWS_BOOT)
+#	if !defined(max) && !defined(CREDS_HOLDER)
 #		define max(a,b) (((a) > (b)) ? (a) : (b))
 #	endif
 
