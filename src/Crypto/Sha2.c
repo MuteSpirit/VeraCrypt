@@ -10,15 +10,6 @@ and released into public domain.
 #include "Crypto/cpu.h"
 #include "Crypto/misc.h"
 
-#if defined(TC_NO_COMPILER_INT64)
-// The boot-style 32-bit configuration does not provide uint_64t (cf.
-// "Common/Tcdefs.h" - the type is defined only when native 64-bit data
-// types are available). In this reduced build uint_64t is used solely as
-// the block counter of the SHA-256 transform helpers below, which never
-// counts past 32 bits, so fall back to the 32-bit type.
-typedef uint_32t uint_64t;
-#endif
-
 /* SHA-2 words are big-endian: swap only on little-endian hosts. */
 #if BYTE_ORDER == BIG_ENDIAN
 #define SHA2_BE32(x) (x)
