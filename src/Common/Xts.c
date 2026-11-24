@@ -62,7 +62,7 @@ void EncryptBufferXTS (unsigned __int8 *buffer,
 #endif // TC_WINDOWS_BOOT
         EncryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
     #else
-        xts_encrypt(buffer, buffer, length, startDataUnitNo, (const aes_encrypt_ctx*) ks);
+        xts_encrypt(buffer, buffer, length, startDataUnitNo->Value, (const aes_encrypt_ctx*) ks);
     #endif
 }
 
@@ -397,7 +397,7 @@ void DecryptBufferXTS (unsigned __int8 *buffer,
 #endif // TC_WINDOWS_BOOT
         DecryptBufferXTSNonParallel (buffer, length, startDataUnitNo, startCipherBlockNo, ks, ks2, cipher);
 #else
-    xts_decrypt(buffer, buffer, length, startDataUnitNo, (const aes_decrypt_ctx*) ks);
+    xts_decrypt(buffer, buffer, length, startDataUnitNo->Value, (const aes_decrypt_ctx*) ks);
 #endif
 }
 
