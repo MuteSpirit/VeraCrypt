@@ -41,7 +41,6 @@ void derive_key_whirlpool (const unsigned char *pwd, int pwd_len, const unsigned
 void hmac_streebog (unsigned char *k, int lk, unsigned char *d, int ld);
 void derive_key_streebog (const unsigned char *pwd, int pwd_len, const unsigned char *salt, int salt_len, uint32 iterations, unsigned char *dk, int dklen, long volatile *pAbortKeyDerivation);
 
-int get_pkcs5_iteration_count (int pkcs5_prf_id, int pim, BOOL bBoot, int* pMemoryCost);
 wchar_t *get_kdf_name (int kdf_id);
 
 #ifndef VC_DCS_DISABLE_ARGON2
@@ -59,6 +58,9 @@ typedef enum
 
 int is_pkcs5_prf_supported (int pkcs5_prf_id, PRF_BOOT_TYPE bootType);
 #else // TC_WINDOWS_BOOT
+
+int get_pkcs5_iteration_count (int pkcs5_prf_id, int pim, BOOL bBoot, int* pMemoryCost);
+
 /* output written to input_digest which must be at lease 32 bytes long */
 void hmac_blake2s (unsigned char *key, int keylen, unsigned char *input_digest, int len);
 void derive_key_blake2s (const unsigned char *pwd, int pwd_len, const unsigned char *salt, int salt_len, uint32 iterations, unsigned char *dk, int dklen);

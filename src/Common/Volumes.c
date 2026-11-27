@@ -160,7 +160,7 @@ UINT64_STRUCT GetHeaderField64 (uint8 *header, int offset)
 }
 
 
-#ifndef TC_WINDOWS_BOOT
+#if !defined(TC_WINDOWS_BOOT)
 
 typedef struct
 {
@@ -830,21 +830,31 @@ void ComputeBootloaderFingerprint (uint8 *bootLoaderBuf, unsigned int bootLoader
 }
 #endif
 
-#else // TC_WINDOWS_BOOT
+#else // !TC_WINDOWS_BOOT
 
 int ReadVolumeHeader (BOOL bBoot, unsigned char *header, Password *password, int pim, PCRYPTO_INFO *retInfo, CRYPTO_INFO *retHeaderCryptoInfo)
 {
 #ifdef TC_WINDOWS_BOOT_SINGLE_CIPHER_MODE
-	unsigned char dk[32 * 2];			// 2 * 256-bit key
+	unsigned char dk[32 * 2] = {0};			// 2 * 256-bit key
 #else
-	unsigned char dk[32 * 2 * 3];		// 6 * 256-bit key
+	unsigned char dk[32 * 2 * 3] = {0};		// 6 * 256-bit key
 #endif
 
 	PCRYPTO_INFO cryptoInfo;
 	int status = ERR_SUCCESS;
+
+#if defined(CREDS_HOLDER)
+        // CredsHolder uses macro like TC_WINDOWS_BOOT to decrease amount of VeraCrypt code which must be
+        // compiled and consume less time for development, compilation and maintenance.
+        // But at the same time CredsHolder must work with VeraCrypt volumes created by desktop variant
+        // of VeraCrypt tools and follow theirs rules for iteration calculation
+        int memoryCost = 0;
+        uint32 iterations = get_pkcs5_iteration_count (/*pkcs5_prf*/ SHA256, pim, bBoot, &memoryCost);
+#else
 	uint32 iterations = pim;
 	iterations <<= 16;
 	iterations |= bBoot;
+#endif
 
 	if (retHeaderCryptoInfo != NULL)
 		cryptoInfo = retHeaderCryptoInfo;
@@ -1003,7 +1013,7 @@ ret:
 	return status;
 }
 
-#endif // TC_WINDOWS_BOOT
+#endif // !TC_WINDOWS_BOOT
 
 
 #if defined(CREDS_HOLDER) || (!defined (DEVICE_DRIVER) && !defined (TC_WINDOWS_BOOT))
@@ -1067,12 +1077,12 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 		return ERR_OUTOFMEMORY;
 
 #ifdef TC_WINDOWS_BOOT
-	// [Hunk] crypto_open() in boot mode returns the single static
+	// crypto_open() in boot mode returns the single static
 	// CryptoInfoBuffer instead of a freshly zeroed heap allocation, and it
-	// may hold leftovers of a previous call (e.g. key schedules of a volume
-	// mounted earlier). Clear it so every field starts from a defined state;
+	// may hold leftovers of a previous call if crypto_close() has not been called
+	// by mistake. Clear it so every field starts from a defined state;
 	// the full build gets the zeroing from crypto_open() itself.
-	memset (cryptoInfo, 0, sizeof (CRYPTO_INFO));
+	burn (cryptoInfo, sizeof (CRYPTO_INFO));
 #endif
 
 	// if no PIM specified, use default value
@@ -1144,8 +1154,14 @@ int CreateVolumeHeaderInMemory (HWND hwndDlg, BOOL bBoot, unsigned char *header,
 	{
 		memcpy (keyInfo.userKey, password->Text, nUserKeyLen);
 		keyInfo.keyLength = nUserKeyLen;
-#ifdef TC_WINDOWS_BOOT
-		// [Hunk] get_pkcs5_iteration_count() is not compiled for the boot
+#if defined(CREDS_HOLDER)
+                // CredsHolder uses macro like TC_WINDOWS_BOOT to decrease amount of VeraCrypt code which must be
+                // compiled and consume less time for development, compilation and maintenance.
+                // But at the same time CredsHolder must work with VeraCrypt volumes created by desktop variant
+                // of VeraCrypt tools and follow theirs rules for iteration calculation
+		keyInfo.noIterations = get_pkcs5_iteration_count (/*pkcs5_prf*/ SHA256, pim, /*bBoot*/ 0, &keyInfo.memoryCost);
+#elif defined(TC_WINDOWS_BOOT)
+		// get_pkcs5_iteration_count() is not compiled for the boot
 		// configuration (it queries the full PRF table). The boot-mode KDFs
 		// take the iteration count in the packed boot encoding instead: the
 		// most significant 16 bits hold the PIM, bit 0 the bBoot flag, and

@@ -12,6 +12,12 @@
  code distribution packages. */
 
 #include "Tcdefs.h"
+#include "Pkcs5.h"
+#include "Crypto.h"
+
+/* Only get_pkcs5_iteration_count needed for CredsHolder from current file */
+#if !defined(CREDS_HOLDER)
+
 #if !defined(_UEFI)
 #include <memory.h>
 #include <stdlib.h>
@@ -48,8 +54,6 @@
 // is not part of this reduced build anyway.
 #include "Sha2.h"
 #endif
-#include "Pkcs5.h"
-#include "Crypto.h"
 
 #if !defined(TC_WINDOWS_BOOT) || defined(TC_WINDOWS_BOOT_SHA2)
 
@@ -171,7 +175,9 @@ static void derive_u_sha256 (const unsigned char *salt, int salt_len, uint32 ite
 	uint32 c;
 	int i;	
 
-#ifdef TC_WINDOWS_BOOT
+#if !defined(TC_WINDOWS_BOOT) || defined(CREDS_HOLDER)
+	c = iterations;
+#else
 	/* In bootloader mode, least significant bit of iterations is a boolean (TRUE for boot derivation mode, FALSE otherwise)
 	 * and the most significant 16 bits hold the pim value
 	 * This enables us to save code space needed for implementing other features.
@@ -182,8 +188,6 @@ static void derive_u_sha256 (const unsigned char *salt, int salt_len, uint32 ite
 		c = (c == 0)? 200000 : c << 11;
 	else
 		c = (c == 0)? 500000 : 15000 + c * 1000;
-#else
-	c = iterations;
 #endif
 
 	/* iteration 1 */
@@ -820,9 +824,11 @@ cancelled:
 #endif
 }
 
-#endif
+#endif // !defined(TC_WINDOWS_BOOT) || defined(TC_WINDOWS_BOOT_BLAKE2S)
 
-#ifndef TC_WINDOWS_BOOT
+#endif // !CREDS_HOLDER
+
+#if !defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 
 typedef struct hmac_whirlpool_ctx_struct
 {
@@ -1258,7 +1264,7 @@ wchar_t *get_kdf_name (int kdf_id)
 	}
 }
 
-
+#endif // !defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 
 int get_pkcs5_iteration_count(int pkcs5_prf_id, int pim, BOOL bBoot, int* pMemoryCost)
 {
@@ -1311,6 +1317,8 @@ int get_pkcs5_iteration_count(int pkcs5_prf_id, int pim, BOOL bBoot, int* pMemor
 
 	return iteration_count;
 }
+
+#if !defined(TC_WINDOWS_BOOT) && !defined(CREDS_HOLDER)
 
 int is_pkcs5_prf_supported (int pkcs5_prf_id, PRF_BOOT_TYPE bootType)
 {
@@ -1444,4 +1452,4 @@ void get_argon2_params(int pim, int* pIterations, int* pMemcost)
 }
 #endif
 
-#endif //!TC_WINDOWS_BOOT
+#endif // !TC_WINDOWS_BOOT && !CREDS_HOLDER
